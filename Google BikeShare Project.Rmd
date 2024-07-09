@@ -1,0 +1,264 @@
+---
+title: "BikeShare"
+author: "Zelibe_Samuel"
+date: "2024-06-20"
+output: html_document
+---
+
+## Installing required packages
+
+```{r}
+install.packages("tidyverse")
+install.packages("janitor")
+install.packages("lubridate")
+install.packages("ggplot2")
+```
+
+## Loading the packages
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(ggplot2)
+library(tidyr)
+library(readr)
+```
+
+## Import data files and rename to identify easily
+
+```{r}
+jul23 <- read_csv("case1/202306-divvy-tripdata.csv")
+aug23 <- read_csv("case1/202307-divvy-tripdata.csv")
+sep23 <- read_csv("case1/202308-divvy-tripdata.csv")
+oct23 <- read_csv("case1/202309-divvy-tripdata.csv")
+nov23 <- read_csv("case1/202310-divvy-tripdata.csv")
+dec23 <- read_csv("case1/202311-divvy-tripdata.csv")
+jan24 <- read_csv("case1/202312-divvy-tripdata.csv")
+feb24 <- read_csv("case1/202401-divvy-tripdata.csv")
+mar24 <- read_csv("case1/202402-divvy-tripdata.csv")
+apr24 <- read_csv("case1/202403-divvy-tripdata.csv")
+may24 <- read_csv("case1/202404-divvy-tripdata.csv")
+jun24 <- read_csv("case1/202405-divvy-tripdata.csv")
+```
+
+## Check the structure of the imported data
+
+```{r}
+str(jul23)
+str(aug23)
+str(sep23)
+str(oct23)
+str(nov23)
+str(dec23)
+str(jan24)
+str(feb24)
+str(mar24)
+str(apr24)
+str(may24)
+str(jun24)
+```
+
+```{r}
+col(jul23)
+col(aug23)
+col(sep23)
+col(oct23)
+col(nov23)
+col(dec23)
+col(jan24)
+col(feb24)
+col(mar24)
+col(apr24)
+col(may24)
+col(jun24)
+```
+
+## Concatenating all the data into a single data frame
+
+```{r}
+bike_trips <- rbind(jul23,aug23,sep23,oct23,nov23,dec23,jan24,feb24,mar24,apr24,may24,jun24)
+```
+
+#How many rows are in the data frame
+
+```{r}
+nrow(bike_trips)
+```
+
+#Data dimension
+
+```{r}
+dim(bike_trips)
+```
+
+#The first six rows
+
+```{r}
+head(bike_trips)
+```
+
+## Adding columns that list date,month,day and year of each ride
+
+```{r}
+bike_trips$date <- as.Date(bike_trips$started_at)  #default yyyy-mm-dd
+bike_trips$month <- format(as.Date(bike_trips$date), "%m")
+bike_trips$day <- format(as.Date(bike_trips$date), "%d")
+bike_trips$year <- format(as.Date(bike_trips$date), "%y")
+bike_trips$day_of_week <- format(as.Date(bike_trips$date), "%A")
+```
+
+#Check for new column names
+
+```{r}
+colnames(bike_trips)
+View(bike_trips)
+```
+
+#A new column will be added to compare the ride length for each ride
+
+```{r}
+bike_trips$ride_length <- difftime(bike_trips$ended_at, bike_trips$started_at)
+```
+
+## Remove data with ride length less than 0 second and is greater than 1440 mins should be removed as its either negative or more than one day
+
+```{r}
+new_bike_trips <- bike_trips[!(bike_trips$ride_length <= 0 | bike_trips$ride_length > 1440),]
+dim(new_bike_trips)
+```
+
+## Removing NA"s
+
+```{r}
+new_bike_trips <- drop_na(new_bike_trips)
+dim(new_bike_trips)
+summary(new_bike_trips)
+```
+
+##Remove duplicates
+
+```{r}
+new_bike_trips_1 <- new_bike_trips[!duplicated(new_bike_trips$ride_id),]
+dim(new_bike_trips_1)
+```
+
+## Assign the correct order to each day of the week
+
+```{r}
+new_bike_trips_1$day_of_week <- ordered(new_bike_trips_1$day_of_week, levels = c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'))
+
+new_bike_trips_1 %>% group_by(member_casual, day_of_week) %>% 
+  summarise(number_of_ride = n(), .groups = 'drop') %>% 
+  arrange(day_of_week)
+```
+
+##Lets assign the correct order to each month of the year
+
+```{r}
+new_bike_trips_1$month <- ordered(new_bike_trips_1$month, levels =c('06', '07', '08', '09', '10', '11', '12', '01', '02', '03', '04', '05'))
+
+new_bike_trips_1 %>% group_by(member_casual, month) %>% 
+  summarise(number_of_ride = n(), .groups = 'drop') %>% 
+  arrange(month)
+```
+
+## Different ride_length depending on rider type
+
+```{r}
+aggregate(new_bike_trips_1$ride_length ~ new_bike_trips_1$member_casual + new_bike_trips_1$day_of_week, FUN = mean)
+
+new_bike_trips_1 %>%  group_by(member_casual, month) %>% 
+  summarise(average_ride_length = mean(ride_length), .groups = 'drop') %>% arrange(month)
+```
+
+## MAX
+
+```{r}
+aggregate(new_bike_trips_1$ride_length ~ new_bike_trips_1$member_casual, FUN = max)
+```
+
+## MEDIAN
+
+```{r}
+aggregate(new_bike_trips_1$ride_length ~ new_bike_trips_1$member_casual, FUN = median)
+```
+
+## MIN
+
+```{r}
+aggregate(new_bike_trips_1$ride_length ~ new_bike_trips_1$member_casual, FUN = min)
+```
+
+**This indicates that members make shorter trips in contrast to casual riders. While casual riders spend more time on the road, members tend to ride the bikes more frequently**
+
+## Checking trip duration to know how each rider use the bike and sharing visualization
+
+```{r}
+new_bike_trips_1 %>% drop_na(member_casual) %>% group_by(member_casual, day_of_week) %>% 
+  summarise(average_trip_duration = mean(ride_length), .groups = 'keep') %>% 
+  ggplot(aes(x = day_of_week, y = average_trip_duration, fill = member_casual)) + geom_col(width = 0.5, position = position_dodge(width = 0.5)) + labs(title = "Average trip duration by rider type Vs. Day of the week")
+```
+
+## Lets count by month
+
+```{r}
+new_bike_trips_1 %>%  drop_na(member_casual) %>%  group_by(member_casual, month) %>% 
+  summarise(number_of_rides = n(), .groups = 'keep') %>% 
+  arrange(member_casual, month) %>%
+  
+  ggplot(aes(x = month, y = number_of_rides, fill = member_casual)) + labs(title = "Total trips by rider type vs. month") + theme(axis.text.x = element_text(angle = 30)) + 
+  geom_col(width = 0.5, position = position_dodge(width = 0.5)) +
+  scale_y_continuous(labels = function(x) format(x, scientific =FALSE))
+```
+
+##Average trip duration
+
+```{r}
+new_bike_trips_1 %>% drop_na(member_casual) %>% group_by(member_casual, month) %>% 
+  summarise(average_trip_duration = mean(ride_length), .groups = 'keep') %>% 
+  ggplot(aes(x = month, y = average_trip_duration, fill = member_casual)) + geom_col(width = 0.5, position = position_dodge(width = 0.5)) + labs(title = "Average trip duration by rider type Vs. month")
+```
+
+## lets check for the rideable type
+
+```{r}
+ride_type <- new_bike_trips_1 %>% ggplot(aes(x = member_casual, fill = rideable_type)) + 
+  geom_bar() +
+  theme_minimal() + 
+  theme(axis.text.x  = element_text(angle = 45)) +
+  labs(title = "Types of Bikes Used",
+       subtitle = "Period: 2022/09 - 2023/08",
+       x = "Type of Rider",
+       y = "Count")
+ride_type + scale_fill_brewer(palette = "Set1", name = " ",
+                              labels = c("Classic bike",
+                                         "Docked bike",
+                                         "Electric bike")) +
+  scale_x_discrete(labels = c("Casual", "Member"))
+```
+
+**From the chart above it shows that both members and casual riders use classic bikes and electric bikes. while only casual riders use docked bikes**
+
+## Now im going to compare how many trips each group has taken
+
+```{r}
+new_bike_trips_1%>%  
+  drop_na(member_casual) %>%
+  group_by(member_casual) %>%
+  count() %>%
+  ungroup() %>%
+  mutate(perc = `n` / sum(`n`)) %>%
+  arrange(perc) %>%
+  mutate(labels = scales::percent(perc)) %>%
+  ggplot(aes(x="", 
+             y=perc, 
+             fill=member_casual))  +
+  geom_bar(stat="identity", width=1, color = "white") +
+  geom_text(aes(label = labels), color = "white",
+            position = position_stack(vjust = 0.5)) +
+  coord_polar("y", start=0) +
+  theme_void()
+```
+
+**This chart shows that members take more trips than casual riders significantly**
