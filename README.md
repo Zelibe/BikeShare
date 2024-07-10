@@ -80,7 +80,8 @@ I removed duplicates, i removed NA’s then i removed empty rows and column,chec
 
 #### How can you verify that your data is clean and ready to analyze?
 I checked for missing values using the filter() function, i checked the variable unique values using the count() function and i checked for duplicates using the duplicated() function.
-
+ 
+*The process is documented in Google BikeShare Project.Rmd*
 
 ### ANALYZE
 
